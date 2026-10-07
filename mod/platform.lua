@@ -40,7 +40,7 @@ function P.down(code)
         (not mods.Shift or held("LeftShift") or held("RightShift"))
 end
 function P.owner(id)
-    if id=="keybinds" then return "永动接线器" end
+    if id=="keybinds" then return "按键绑定" end
     local ok,result=pcall(function()
         local f=assert(loadstring(LuaManagerInst:LoadLua("ZML/Api"),"@ZML/Api"))
         local mod=f().mod(id);return mod and mod.name
