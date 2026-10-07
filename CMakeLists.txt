@@ -12,11 +12,15 @@ add_library(Keybinds SHARED src/plugin.cpp)
 target_include_directories(Keybinds PRIVATE sdk/include src)
 set_target_properties(Keybinds PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/package/$<CONFIG>/keybinds")
 add_custom_target(package ALL DEPENDS Keybinds)
-foreach(file mod.ini keybinds.lua platform.lua settings.lua zml-package.json)
+foreach(file mod.ini icon.png keybinds.lua platform.lua settings.lua zml-package.json)
   add_custom_command(TARGET package POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
     "${CMAKE_CURRENT_SOURCE_DIR}/mod/${file}" "${CMAKE_BINARY_DIR}/package/$<CONFIG>/keybinds/${file}")
 endforeach()
 enable_testing()
+find_program(KEYBINDS_POWERSHELL powershell REQUIRED)
+add_test(NAME icon_asset COMMAND "${KEYBINDS_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass
+  -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/icon_asset.ps1"
+  -SourceRoot "${CMAKE_CURRENT_SOURCE_DIR}" -PackageRoot "${CMAKE_BINARY_DIR}/package/$<CONFIG>/keybinds")
 add_library(ServiceFixture SHARED tests/service_fixture.cpp)
 target_include_directories(ServiceFixture PRIVATE sdk/include)
 set_target_properties(ServiceFixture PROPERTIES OUTPUT_NAME ZMLRuntime RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fixture/$<CONFIG>")
