@@ -80,3 +80,22 @@ lua.execute('''
     assert(not bounded.register('demo',{id='a33',name='Action'}))
 ''')
 print('PASS Lua registry, namespace/defaults/secondary, native leases, staged save/discard/reset, callback isolation, write/bind rollback, private storage bounds/reload')
+
+lua.execute("""
+    disk=nil;runtimeOn=false;allow=true;live={}
+    P.ownerActive=function()return runtimeOn end
+    P.down=function()return true end
+    local lib=factory(P);local action=assert(lib.register('demo',{id='runtime',name='Runtime',primary='F8'}))
+    local hits=0;local close=assert(action.bind(42,function()hits=hits+1 end))
+    assert(#lib.list()==0 and not action.down() and not action.pressed())
+    for _,b in pairs(live)do assert(not b.enabled);b.fn()end;assert(hits==0)
+    local saved=disk
+    for i=1,20 do
+        runtimeOn=true;lib.runtime_changed();assert(#lib.list()==1 and action.down())
+        for _,b in pairs(live)do assert(b.enabled);b.fn()end
+        runtimeOn=false;lib.runtime_changed();assert(#lib.list()==0 and not action.down() and not action.pressed())
+        for _,b in pairs(live)do assert(not b.enabled);b.fn()end
+    end
+    assert(hits==20 and disk==saved);close();assert(count()==0)
+""")
+print('PASS owner/library runtime gate: inactive binding, callback/continuous suppression, 20 suspend/resume cycles, saved keys preserved')

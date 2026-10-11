@@ -1,5 +1,6 @@
 #pragma once
 #include "keybinds_native.h"
+#include "zml_activation_client.hpp"
 #include "patch.hpp"
 #include <Windows.h>
 #include <filesystem>
@@ -99,6 +100,7 @@ public:
         std::lock_guard lock(mutex);auto it=actions.find(h);if(it==actions.end())return 0;
         DWORD pid=0;GetWindowThreadProcessId(GetForegroundWindow(),&pid);
         auto& a=it->second;bool down=false;
+        if(!zml_activation::active() || !zml_activation::active(a.owner.c_str())){a.previous=true;return 0;}
         if(valid) {
             auto found=current.find(a.owner+":"+a.id);
             auto keys=found==current.end()?std::make_pair(a.primary,a.secondary):found->second;

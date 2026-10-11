@@ -42,7 +42,7 @@ inline bool patch(std::string_view in, int kind, std::string_view extension, std
             !inside("OnClose", "function(self)", "\n    if _G.ZMLKeybindsUI then _G.ZMLKeybindsUI.close(self) end\n", true) ||
             !before("HL.Commit(GameSettingCtrl)", std::string(marker)+"\n"+std::string(extension)+"\n")) return false;
     } else if (kind == 2) {
-        if (!inside("_ListenInput", "    if isBlackList then", "    -- Allow captured keys for native and Mod actions; keep conflict/save checks.\n    isBlackList = false\n", false) ||
+        if (!inside("_ListenInput", "    if isBlackList then", "    -- Allow captured keys for native and Mod actions; keep conflict/save checks.\n    if not _G.ZML or not _G.ZML.is_enabled or _G.ZML.is_enabled(\"keybinds\") then isBlackList = false end\n", false) ||
             !inside("OnCreate", "    self.m_settingItemData = arg.settingItemData", "\n    if _G.ZMLKeybindsUI then _G.ZMLKeybindsUI.popupNames[self] = arg.zmlKeybindName end\n", true) ||
             !inside("_UpdateView", "    self.view.actionNameText.text = settingItemData.settingText", "\n    if _G.ZMLKeybindsUI and _G.ZMLKeybindsUI.popupNames[self] then\n        self.view.actionNameText.text = _G.ZMLKeybindsUI.popupNames[self]\n    end\n", true) ||
             !inside("OnClose", "function(self)", "\n    if _G.ZMLKeybindsUI then _G.ZMLKeybindsUI.popupClose(self) end\n", true) ||

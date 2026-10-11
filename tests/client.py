@@ -60,6 +60,22 @@ lua.execute((r/'tests/platform_mock.lua').read_text(encoding='utf8'))
 platform=(r/'mod/platform.lua').read_text(encoding='utf8').replace('__ZML_STATE_FILE__','"C:/fixture/bindings.ini"')
 lua.globals().ZMLKBFactory=lua.globals().factory
 lua.execute(platform)
+# API may not yet be global when UIUtils first executes. Resolve the public
+# service explicitly even with no native actions, then register lifecycle.
+lua.execute('''
+    ZML=nil;ZMLKeybinds=nil;runtimeLifecycle=nil;runtimeSubscriber=nil
+    runtimeOldLoad=LuaManagerInst.LoadLua
+    LuaManagerInst.LoadLua=function(self,path)
+        if path=='ZML/Api' then return [[
+            ZML={is_enabled=function()return true end,
+                register_lifecycle=function(id,h)assert(id=='keybinds');runtimeLifecycle=h end,
+                subscribe_runtime=function(fn)runtimeSubscriber=fn end};return ZML
+        ]] end
+        return runtimeOldLoad(self,path)
+    end
+''')
+lua.execute(platform)
+lua.execute('''assert(runtimeLifecycle and runtimeSubscriber);ZML=nil;LuaManagerInst.LoadLua=runtimeOldLoad''')
 lua.execute('''
     local h=assert(ZMLKeybinds.register('demo',{id='native',name='Native',primary='F8'}))
     local hits=0
@@ -78,7 +94,7 @@ lua.execute('''
     assert(h.get()[1]=='F11' and ZMLKeybinds._dirty());failFileWrite=false
     stop()
 ''')
-boot=sources[1].split('-- ZML_KEYBINDS_V1\n',1)[1].split('-- Adapter for the actual GameSetting',1)[0]
+boot=sources[1].split('-- ZML_KEYBINDS_V1\n',1)[1].split('-- GameSetting controller and widget adapter.',1)[0]
 lua.globals().late_boot=compile_(boot,'@actual.dll.lazy-bootstrap')
 lua.globals().get_sdk=lua.execute((r/'sdk/keybinds.lua').read_text(encoding='utf8'))
 lua.execute('''

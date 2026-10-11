@@ -39,6 +39,10 @@ function P.down(code)
         (not mods.Alt or held("LeftAlt") or held("RightAlt")) and
         (not mods.Shift or held("LeftShift") or held("RightShift"))
 end
+function P.ownerActive(id)
+    local z=rawget(_G,"ZML")
+    return not z or not z.is_enabled or (z.is_enabled("keybinds") and z.is_enabled(id))
+end
 function P.owner(id)
     if id=="keybinds" then return "按键绑定" end
     local ok,result=pcall(function()
@@ -64,7 +68,7 @@ function P.write(text)
         if IO.File.Exists(path) then IO.File.Replace(tmp,path,nil) else IO.File.Move(tmp,path) end
     end)
     if IO.File.Exists(tmp) then pcall(IO.File.Delete,tmp) end
-    return ok,not ok and "无法原子保存按键配置" or nil
+    return ok,not ok and "无法保存按键配置" or nil
 end
 function P.bind(group,code,fn,options)
     local name,mods=spec(code);assert(name,"key enum unavailable")
@@ -131,3 +135,16 @@ function _G.ZMLKeybinds._attachGate()
     end)
 end
 _G.ZMLKeybinds._attachGate()
+
+local z=rawget(_G,'ZML')
+if not z then
+    local ok,value=pcall(function()return assert(loadstring(LuaManagerInst:LoadLua('ZML/Api'),'@ZML/Api'))()end)
+    if ok then z=value end
+end
+if z and z.register_lifecycle then
+    z.register_lifecycle('keybinds',{
+        prepare=function() return not UIManager:IsShow(PanelId.GameSetting) and not UIManager:IsShow(PanelId.GameSettingKeycodePopup),'请先关闭按键设置' end,
+        changed=function() _G.ZMLKeybinds.runtime_changed() end
+    })
+    z.subscribe_runtime(function() _G.ZMLKeybinds.runtime_changed() end)
+end

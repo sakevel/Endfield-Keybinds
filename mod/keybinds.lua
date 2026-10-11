@@ -1,6 +1,6 @@
 -- Keybinding registry and binding manager.
 return function(P)
-    local A = {api=1, version="0.2.1"}
+    local A = {api=1, version="0.2.2"}
     local actions, store, pending, listeners = {}, {}, {}, {}
     local storageError, serial, listenerId = nil, 0, 0
     local function component(s)
@@ -43,13 +43,14 @@ return function(P)
     local function dispose(ids)
         for _,id in ipairs(ids or {}) do pcall(P.unbind,id) end
     end
+    local function ownerActive(id) return not P.ownerActive or P.ownerActive(id) end
     local function prepare(lease,v)
         local ids,seen={},{}
         for _,code in ipairs(v) do
             if code~="None" and not seen[code] then
                 seen[code]=true
                 local ok,id=pcall(P.bind,lease.group,code,function()
-                    if lease.closed then return end
+                    if lease.closed or not ownerActive(lease.owner) then return end
                     local safe,allowed=pcall(P.allowed,lease.options)
                     if not safe or not allowed then return end
                     local ran=pcall(lease.callback)
@@ -81,7 +82,7 @@ return function(P)
         function H.get() if actions[id]~=a then return nil end return values(id,false) end
         -- Continuous input polling
         function H.down(options)
-            if actions[id]~=a or not P.down then return false end
+            if actions[id]~=a or not P.down or not ownerActive(owner) then return false end
             local opts={gameplay=not options or options.gameplay~=false}
             local ok,allowed=pcall(P.allowed,opts);if not ok or not allowed then return false end
             for _,code in ipairs(values(id,false)) do
@@ -90,6 +91,7 @@ return function(P)
             return false
         end
         function H.pressed(options)
+            if not ownerActive(owner) then a.previous=true;return false end
             local ok,allowed=pcall(P.allowed,{gameplay=not options or options.gameplay~=false})
             if not ok or not allowed then
                 local held=false
@@ -106,11 +108,11 @@ return function(P)
             if type(options)~="table" then return nil,"输入选项无效" end
             local opts={gameplay=options.gameplay~=false, timing=options.timing or "OnClick"}
             if opts.timing~="OnClick" and opts.timing~="OnPress" and opts.timing~="OnRelease" and opts.timing~="OnLongPress" then return nil,"输入时机不支持" end
-            local lease={group=group,callback=callback,options=opts,closed=false}
+            local lease={group=group,callback=callback,options=opts,closed=false,owner=owner}
             local ids,err=prepare(lease,values(id,false));if not ids then return nil,err end
             lease.ids=ids
             for _,bid in ipairs(ids) do
-                if not pcall(P.enable,bid,true) then dispose(ids);return nil,"原生输入启用失败" end
+                if not pcall(P.enable,bid,ownerActive(owner)) then dispose(ids);return nil,"原生输入启用失败" end
             end
             serial=serial+1;local leaseId=serial;a.leases[leaseId]=lease
             return function()
@@ -144,11 +146,17 @@ return function(P)
         actions[full],pending[full],listeners[full]=nil,nil,nil
         return true
     end
+    function A.runtime_changed()
+        for _,a in pairs(actions) do
+            a.previous=true
+            for _,l in pairs(a.leases) do for _,id in ipairs(l.ids or {}) do P.enable(id,ownerActive(a.owner)) end end
+        end
+    end
     function A.list()
         local result={}
         for _,id in ipairs(sorted(actions)) do
             local a=actions[id]
-            result[#result+1]={id=id,owner=a.owner,ownerName=a.ownerName,name=a.name,keys=values(id,false),native=a.native}
+            if ownerActive(a.owner) then result[#result+1]={id=id,owner=a.owner,ownerName=a.ownerName,name=a.name,keys=values(id,false),native=a.native} end
         end
         return result
     end
@@ -200,7 +208,7 @@ return function(P)
         local changed=pending;store=candidate;pending={}
         for _,s in ipairs(staged) do
             dispose(s.lease.ids);s.lease.ids=s.ids
-            for _,id in ipairs(s.ids) do if not pcall(P.enable,id,true) then report("binding_enable_failed") end end
+            for _,id in ipairs(s.ids) do if not pcall(P.enable,id,ownerActive(s.lease.owner)) then report("binding_enable_failed") end end
         end
         for id in pairs(changed) do notify(id,values(id,false)) end
         return true

@@ -35,3 +35,7 @@ action.bind(self.view.inputGroup.groupId, function()
     print("按键被触发")
 end, { gameplay = true, timing = "OnClick" })
 ```
+
+## 运行时启停
+
+支持游戏内热开关（需 ZML 0.5.0 及以上版本），可在启动器中直接切换启用状态。

@@ -1,4 +1,5 @@
 #include "zml_plugin.h"
+#include "zml_activation_client.hpp"
 #include "patch.hpp"
 #include "zml_lua_service.h"
 #include "native.hpp"
@@ -38,6 +39,7 @@ int start(const ZmlHost* h) {
         !h->transform_lua || !h->log || !*h->state_directory) return 0;
     try {
         host = h;
+        zml_activation::init(h->owner);
         auto path=std::filesystem::path(std::u8string(reinterpret_cast<const char8_t*>(h->mod_directory)));
         auto core=read(path/"keybinds.lua"), platform=read(path/"platform.lua"), ui=read(path/"settings.lua");
         size_t at;
@@ -46,7 +48,7 @@ int start(const ZmlHost* h) {
         auto u=state.u8string();platform.replace(at,18,kb::literal({reinterpret_cast<const char*>(u.data()),u.size()}));
         auto boot="if not rawget(_G,'ZMLKeybinds') then\ndo\nlocal ZMLKBOK = pcall(function()\nlocal ZMLKBFactory = (function()\n"+core+"\nend)();\n(function(UIUtils)\n"+platform+"\nend)(UIUtils)\nend)\nif not ZMLKBOK then logger.error('Keybinds library startup failed') end\nend\nend\n";
         transforms[0]={0,boot};
-        transforms[1]={1,ui};
+        transforms[1]={1,boot+ui};
         transforms[2]={2,"-- popup"};
         // Lazy bootstrap for GameSettingCtrl
         // in a source shared with model-heavy consumers under the 768KiB cap.
